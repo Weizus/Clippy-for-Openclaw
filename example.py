@@ -13,18 +13,20 @@ voice = PiperVoice.load("en_US-amy-low.onnx")
 def speak(text):
     print(f">>> Piper is saying: {text}")
 
-    # In the current piper-tts, synthesize() is the generator
-    # We don't pass a file object, so it yields chunks of audio
-    for audio_bytes in voice.synthesize(text):
-        # Piper outputs 16-bit PCM (int16)
+    # Piper's synthesize returns a generator of AudioChunk objects
+    for chunk in voice.synthesize(text):
+        # Access the raw bytes inside the AudioChunk object
+        audio_bytes = chunk.audio
+
+        # Convert bytes to 16-bit integers
         audio_int16 = np.frombuffer(audio_bytes, dtype=np.int16)
 
-        # Convert to float32 for sounddevice (standard -1.0 to 1.0)
+        # Convert to float32 for sounddevice (-1.0 to 1.0)
         audio_float32 = audio_int16.astype(np.float32) / 32768.0
 
-        # Piper 'medium' models are usually 22050Hz
-        # If it sounds like a chipmunk, try 16000
-        sd.play(audio_float32, samplerate=22050)
+        # Use the sample rate defined in the voice's own config (usually 22050)
+        # This is safer than hardcoding it!
+        sd.play(audio_float32, samplerate=voice.config.sample_rate)
         sd.wait()
 
 def run_loop():
