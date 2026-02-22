@@ -7,27 +7,20 @@ from faster_whisper import WhisperModel
 stt_model = WhisperModel("tiny", device="cpu", compute_type="int8")
 
 # 2. Initialize Piper (The Mouth)
-# Point this to the file you just downloaded
 voice = PiperVoice.load("en_US-amy-low.onnx")
 
 def speak(text):
     print(f">>> Piper is saying: {text}")
 
-    # Piper's synthesize returns a generator of AudioChunk objects
     for chunk in voice.synthesize(text):
-        # Access the raw bytes inside the AudioChunk object
-        audio_bytes = chunk.audio
+        # Use the pre-computed float array from the AudioChunk object
+        audio_float32 = chunk.audio_float_array
 
-        # Convert bytes to 16-bit integers
-        audio_int16 = np.frombuffer(audio_bytes, dtype=np.int16)
-
-        # Convert to float32 for sounddevice (-1.0 to 1.0)
-        audio_float32 = audio_int16.astype(np.float32) / 32768.0
-
-        # Use the sample rate defined in the voice's own config (usually 22050)
-        # This is safer than hardcoding it!
-        sd.play(audio_float32, samplerate=voice.config.sample_rate)
+        # Play it back using the sample rate from the chunk itself
+        # (This ensures it matches the audio data perfectly)
+        sd.play(audio_float32, samplerate=chunk.sample_rate)
         sd.wait()
+
 
 def run_loop():
     fs = 16000
@@ -43,7 +36,7 @@ def run_loop():
 
     if user_text:
         print(f"User: {user_text}")
-        response = f"You said {user_text}. That sounds interesting."
+        response = f"You said {user_text}."
         speak(response)
     else:
         print("...Silence...")
